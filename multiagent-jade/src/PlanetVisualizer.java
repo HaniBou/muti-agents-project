@@ -11,6 +11,7 @@ public class PlanetVisualizer extends JPanel {
     private List<SpaceAgent> agents; // Liste des agents actifs
     private int[][] stones; // Matrice pour les pierres
     private boolean[][] occupied; // Matrice pour vérifier les cases occupées
+    private boolean[][] obstacles; // Matrice pour les obstacles
     private Image agentIcon, stoneIcon; // Icônes pour l'agent et la pierre
     private boolean isRunning; // État de la simulation
     private List<Point> agentPositions; // Liste pour stocker les positions des agents
@@ -19,7 +20,7 @@ public class PlanetVisualizer extends JPanel {
     private MotherShip mothership; // Instance du vaisseau mère
 
     // Constructeur de la classe
-    public PlanetVisualizer(int gridSize, int numStones) {
+    public PlanetVisualizer(int gridSize, int numStones, int numObstacles) {
         this.gridSize = gridSize;
         this.agents = new ArrayList<>(); // Initialiser la liste des agents
         this.agentCapacities = new int[0]; // Initialiser la liste des capacités
@@ -39,7 +40,9 @@ public class PlanetVisualizer extends JPanel {
 
         stones = new int[gridSize][gridSize];
         occupied = new boolean[gridSize][gridSize]; // Initialisation de la matrice occupée
+        obstacles = new boolean[gridSize][gridSize]; // Initialisation de la matrice des obstacles
         initializeStones(numStones); // Initialiser les pierres
+        initializeObstacles(numObstacles); // Initialize obstacles
         isRunning = true; // Initialiser l'état de la simulation
         agentPositions = new ArrayList<>(); // Initialiser la liste des positions des agents
 
@@ -51,6 +54,22 @@ public class PlanetVisualizer extends JPanel {
     }
     // Méthode pour ajouter un agent
     public int addAgentPosition(int x, int y) {
+        Random rand = new Random();
+        int attempts = 0;
+        int maxAttempts = gridSize * gridSize; // Set a maximum number of attempts to avoid an infinite loop
+
+        // Try to find an unoccupied cell
+        while (isOccupied(x, y) || obstacles[x][y]) {
+            x = rand.nextInt(gridSize);
+            y = rand.nextInt(gridSize);
+            attempts++;
+
+            // If we've made too many attempts and can't find a free spot, break
+            if (attempts >= maxAttempts) {
+                System.out.println("Error: Unable to find an unoccupied cell for the agent.");
+                return -1; // Return an error code or handle appropriately
+            }
+        }
         agentPositions.add(new Point(x, y));
         setOccupied(x, y, true);
 
@@ -97,8 +116,23 @@ public class PlanetVisualizer extends JPanel {
             do {
                 x = rand.nextInt(gridSize);
                 y = rand.nextInt(gridSize);
-            } while (stones[x][y] > 0); // Assurez-vous de ne pas dépasser une pierre par case
+            } while (stones[x][y] > 0 || obstacles[x][y] || (x==gridSize / 2 && y==gridSize / 2)); // Assurez-vous de ne pas dépasser une pierre par case
             stones[x][y] = rand.nextInt(7) + 1; // Poser les pierres
+        }
+    }
+
+    // Méthode pour initialiser les obsctacle dans la grille
+    private void initializeObstacles(int numObstacles) {
+        Random rand = new Random();
+        for (int i = 0; i< numObstacles; i++){
+            int x, y;
+            do {
+                x = rand.nextInt(gridSize);
+                y = rand.nextInt(gridSize);
+                System.out.println("obstacles placed at position " +x +" " + y);
+            } while (obstacles[x][y] || occupied[x][y] || hasStone(x,y)|| (x==gridSize / 2 && y==gridSize / 2)); // S'assurer que la case n'est pas un obstacle ou occupée
+            obstacles[x][y] = true; // La case est un obstacle
+            setOccupied(x, y, true); // La case est marquée comme occupée
         }
     }
 
@@ -119,18 +153,46 @@ public class PlanetVisualizer extends JPanel {
 
     // Met à jour la position de l'agent sur la grille
     public void updateAgentPosition(int agentIndex, int x, int y) {
-        // Assurez-vous que la liste des positions est suffisamment grande
+        // Check if the new position is within bounds
+        if (x < 0 || x >= gridSize || y < 0 || y >= gridSize) {
+            System.out.println("Invalid position: Out of grid bounds.");
+            return;
+        }
+
+        // Check if the new position is occupied by another agent
+        for (int i = 0; i < agentPositions.size(); i++) {
+            if (i != agentIndex && agentPositions.get(i).equals(new Point(x, y))) {
+                System.out.println("Position occupied by another agent.");
+                return; // Exit if the cell is already occupied by another agent
+            }
+        }
+
+        // Check if the new position is an obstacle
+        if (isOccupied(x, y)) {
+            System.out.println("Position is occupied by an obstacle.");
+            return; // Exit if the cell is an obstacle
+        }
+
+        // Ensure the agent list is large enough and update the occupied state
         if (agentIndex >= agentPositions.size()) {
             agentPositions.add(new Point(x, y));
         } else {
-            agentPositions.set(agentIndex, new Point(x, y)); // Mettre à jour la position de l'agent
+            // Mark the old position as unoccupied
+            Point oldPos = agentPositions.get(agentIndex);
+            setOccupied(oldPos.x, oldPos.y, false);
+
+            // Update the position of the agent
+            agentPositions.set(agentIndex, new Point(x, y));
         }
-        repaint(); // Redessiner le panneau
+
+        // Mark the new position as occupied
+        setOccupied(x, y, true);
+        repaint(); // Redraw the panel
     }
 
     // Vérifie si une case est occupée
     public boolean isOccupied(int x, int y) {
-        return occupied[x][y];
+        return occupied[x][y] || obstacles [x][y];
     }
 
     // Marque une case comme occupée ou non
@@ -162,6 +224,13 @@ public class PlanetVisualizer extends JPanel {
         for (int row = 0; row < gridSize; row++) {
             for (int col = 0; col < gridSize; col++) {
                 g.drawRect(col * cellSize, row * cellSize, cellSize, cellSize);
+
+                // Dessiner les obstacles
+                if (obstacles[col][row]) {
+                    g.setColor(Color.RED);
+                    g.fillRect(col * cellSize, row * cellSize, cellSize, cellSize);
+                    g.setColor(Color.BLACK); // Reset color for the border
+                }
 
                 // Dessiner les pierres
                 if (stones[col][row] > 0) {

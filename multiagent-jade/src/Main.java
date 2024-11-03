@@ -43,6 +43,7 @@ public class Main {
             JTextField stoneCountField = new JTextField("10", 5);
             JTextField agentCountField = new JTextField("5", 5);
             JTextField delayField = new JTextField("1000", 5);
+            JTextField obstacleCountField = new JTextField("10", 5);
 
             gbc.gridx = 0; gbc.gridy = 0;
             controlPanel.add(new JLabel("Settings"), gbc);
@@ -67,6 +68,11 @@ public class Main {
             gbc.gridx = 1;
             controlPanel.add(delayField, gbc);
 
+            gbc.gridx = 0; gbc.gridy = 5;
+            controlPanel.add(new JLabel("Nombre d'obstacles :"), gbc);
+            gbc.gridx = 1;
+            controlPanel.add(obstacleCountField, gbc);
+
             // Initialisation du modèle pour la liste des agents
             agentListModel = new DefaultListModel<>();
             JList<String> agentList = new JList<>(agentListModel);
@@ -74,10 +80,10 @@ public class Main {
             agentScrollPane.setPreferredSize(new Dimension(150, 200));
 
             // Section liste des agents
-            gbc.gridx = 0; gbc.gridy = 5; gbc.gridwidth = 2;
+            gbc.gridx = 0; gbc.gridy = 6; gbc.gridwidth = 2;
             controlPanel.add(new JLabel("Liste des agents présents :"), gbc);
 
-            gbc.gridy = 6;
+            gbc.gridy = 7;
             controlPanel.add(agentScrollPane, gbc);
 
             // Ajouter les boutons
@@ -102,6 +108,7 @@ public class Main {
             startButton.addActionListener(e -> {
                 int gridSize;
                 int stoneCount;
+                int obstcleCount;
                 int numAgents;
                 int delay;
 
@@ -110,9 +117,10 @@ public class Main {
                     stoneCount = Integer.parseInt(stoneCountField.getText());
                     numAgents = Integer.parseInt(agentCountField.getText());
                     delay = Integer.parseInt(delayField.getText());
+                    obstcleCount = Integer.parseInt(obstacleCountField.getText());
 
                     // Création du visualisateur et du conteneur de défilement
-                    PlanetVisualizer visualizer = new PlanetVisualizer(gridSize, stoneCount);
+                    PlanetVisualizer visualizer = new PlanetVisualizer(gridSize, stoneCount, obstcleCount);
                     JScrollPane scrollPane = new JScrollPane(visualizer);
                     frame.add(scrollPane, BorderLayout.CENTER);
                     frame.revalidate();
