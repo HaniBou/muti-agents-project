@@ -18,6 +18,8 @@ public class PlanetVisualizer extends JPanel {
     private int[] agentCapacities; // Capacité courante de chaque agent
     private int agentMaxCapacity = 3; // Capacité max de collecte pour chaque agent
     private MotherShip mothership; // Instance du vaisseau mère
+    private int currentMotherShipCapacity = 0;
+    private int maxMotherShipCapacity = 10; // Set this to your desired capacity
 
     // Constructeur de la classe
     public PlanetVisualizer(int gridSize, int numStones, int numObstacles) {
@@ -47,7 +49,10 @@ public class PlanetVisualizer extends JPanel {
         agentPositions = new ArrayList<>(); // Initialiser la liste des positions des agents
 
         // Initialiser le vaisseau mère à une position fixe (par exemple, au centre de la grille)
-        this.mothership = new MotherShip(gridSize / 2, gridSize / 2, "/resources/mothershipIcon.png");
+        this.mothership = new MotherShip(gridSize / 2, gridSize / 2, "/resources/mothershipIcon.png", maxMotherShipCapacity);
+    }
+    public boolean isMothershipFull() {
+        return mothership.getCollectedStones() >= maxMotherShipCapacity;
     }
     public Point getMotherShipPosition() {
         return new Point(mothership.getX(), mothership.getY());
@@ -284,8 +289,33 @@ public class PlanetVisualizer extends JPanel {
         // Logique pour déposer des pierres dans le vaisseau mère
         mothership.depositStones(stones);
 
+
         // Réinitialiser la capacité de l'agent
         agentCapacities[agentIndex] = 0;
         repaint();
+    }
+    public SpaceAgent getAgentAt(int x, int y) {
+        for (SpaceAgent agent : agents) {
+            // Vérifiez si l'agent est à la position donnée
+            if (agent.getX() == x && agent.getY() == y) {
+                return agent; // Renvoie l'agent si trouvé
+            }
+        }
+        return null; // Renvoie null si aucun agent n'est trouvé à cette position
+    }
+
+    public boolean allAgentsAtMotherShip() {
+        for (SpaceAgent agent : agents) {
+            if (agent.getX() != mothership.getX() || agent.getY() != mothership.getY()) {
+                return false; // At least one agent is not at the mother ship
+            }
+        }
+        return true; // All agents are at the mother ship
+    }
+    public void finishSimulation() {
+        // Logic to finish the simulation, e.g., stop the visualizer or show a message
+        System.out.println("All agents have returned to the mother ship. Simulation finished.");
+        // You might want to stop the timer, close the window, etc.
+        System.exit(0); // Or handle it in a more user-friendly way
     }
 }

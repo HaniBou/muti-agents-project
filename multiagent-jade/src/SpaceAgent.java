@@ -16,6 +16,9 @@ public class SpaceAgent extends Agent {
     private int agentIndex; // L'index de cet agent dans PlanetVisualizer
     private int x, y; // Position de l'agent
     private List<Point> path = new ArrayList<>(); // Chemin de l'agent
+    private int batteryLevel = 50;
+    private int maxbatteryLevel = 50;
+    private int lowBatteryThreshold = 10;
 
     @Override
     protected void setup() {
@@ -79,12 +82,31 @@ public class SpaceAgent extends Agent {
 
         return newPath;
     }
+    public int getX() {
+        return x;
+    }
+
+    public int getY() {
+        return y;
+    }
 
     private class ExplorationBehaviour extends CyclicBehaviour {
         @Override
         public void action() {
             if (!visualizer.isRunning()) {
                 block(); // Pause si la simulation est arrêtée
+                return;
+            }
+
+            if(visualizer.isMothershipFull()){
+                returnAllToMotherShip();
+                return;
+            }
+
+            // Prioriser le retour au vaisseau mère si la batterie est faible
+            if(batteryLevel<= lowBatteryThreshold){
+                System.out.println(getLocalName() + " has low battery (" + batteryLevel + "). Returning to mother ship.");
+                returnToMotherShip();
                 return;
             }
 
@@ -125,6 +147,7 @@ public class SpaceAgent extends Agent {
             x = nextPoint.x;
             y = nextPoint.y;
             path.remove(0); // Supprimer le point du chemin
+            batteryLevel--;
 
             visualizer.updateAgentPosition(agentIndex, x, y); // Mettre à jour la position de l'agent
             block(delay); // Délai entre les actions
@@ -152,6 +175,26 @@ public class SpaceAgent extends Agent {
             System.out.println(getLocalName() + " sent help request to " + (message.getAllReceiver()) + " agents.");
         }
 
+        private void requestHelp() {
+            ACLMessage message = new ACLMessage(ACLMessage.REQUEST);
+            message.setContent("Help! I'm out of battery at (" + x + "," + y + ")");
+            System.out.println(getLocalName() + " is requesting help at (" + x + "," + y + ")");
+
+            List<AID> allAgents = visualizer.getAllAgents();
+            if (allAgents == null || allAgents.isEmpty()) {
+                System.out.println(getLocalName() + ": No other agents found.");
+                return; // Arrête si aucun autre agent n'est trouvé
+            }
+            for (AID agent : allAgents) {
+                if (!agent.equals(getAID())) { // Ne pas envoyer à soi-même
+                    message.addReceiver(agent);
+                    System.out.println(getLocalName() + " added receiver for battery: " + agent.getLocalName());
+                }
+            }
+
+            send(message); // Envoyer le message
+        }
+
         private void returnToMotherShip() {
             Point motherShipPosition = visualizer.getMotherShipPosition(); // Obtenir la position du vaisseau mère
             System.out.println(getLocalName() + " returning to mother ship to deposit stones.");
@@ -161,19 +204,51 @@ public class SpaceAgent extends Agent {
                 System.out.println(getLocalName() + " deposited " + collected + " stones at mother ship.");
                 collected = 0; // Réinitialiser les pierres collectées
                 visualizer.updateAgentCapacity(agentIndex, collected, capacity); // Mettre à jour la capacité après dépôt
+
+
+                //Recharger la batterie au niveau max
+                batteryLevel = maxbatteryLevel;
+                System.out.println(getLocalName() + " recharged to full battery (" + batteryLevel + ").");
                 path = generateRandomPath();
             }
         }
 
+        private void returnAllToMotherShip() {
+            Point motherShipPosition = visualizer.getMotherShipPosition(); // Obtenir la position du vaisseau mère
+            System.out.println(getLocalName() + " returning to mother ship because it is full");
+            moveToPosition(motherShipPosition);
+            if (x == motherShipPosition.x && y == motherShipPosition.y) {
+                takeDown();
+            }
+            if (visualizer.allAgentsAtMotherShip()) {
+                visualizer.finishSimulation(); // End the simulation if all agents are at the mother ship
+            }
+        }
+
         private void moveToPosition(Point target) {
+            if (batteryLevel <= 0) {
+                System.out.println(getLocalName() + " cannot move due to depleted battery. Requesting help...");
+                requestHelp(); // Appeler la demande d'aide
+                return;
+            }
             // Déplacement vers la position cible
-            if (x < target.x) x++;
-            else if (x > target.x) x--;
-
-            if (y < target.y) y++;
-            else if (y > target.y) y--;
-
+            if(x!=target.x){
+                if (x < target.x) x++;
+                else if (x > target.x) x--;
+                batteryLevel--;
+            }
+            if(y!=target.y) {
+                if (y < target.y) y++;
+                else if (y > target.y) y--;
+                batteryLevel--;
+            }
             visualizer.updateAgentPosition(agentIndex, x, y);
+            System.out.println(getLocalName() + " current position: (" + x + "," + y + "). Battery level: " + batteryLevel);
+            // Si la batterie est épuisée en chemin, arrêter le mouvement
+            if (batteryLevel <= 0) {
+                System.out.println(getLocalName() + " battery depleted before reaching the mother ship!");
+                return;
+            }
             block(delay);
         }
     }
@@ -194,6 +269,15 @@ public class SpaceAgent extends Agent {
         private void handleHelpRequest(ACLMessage msg) {
             String content = msg.getContent();
             System.out.println(getLocalName() + " received message: " + content);
+            if (content.startsWith("Help! I'm out of battery")) {
+                String[] parts = content.split(" ");
+                String coordinates = parts[5].replace("(", "").replace(")", "");
+                String[] coords = coordinates.split(",");
+                int helpX = Integer.parseInt(coords[0]);
+                int helpY = Integer.parseInt(coords[1]);
+                moveToHelpBattery(helpX, helpY);
+
+            }
 
             if (content.startsWith("Help at")) {
                 // Extraire la position à laquelle l'aide est demandée
@@ -205,6 +289,42 @@ public class SpaceAgent extends Agent {
                 // Déplacer cet agent vers la position demandée
                 System.out.println(getLocalName() + " moving to help at (" + helpX + "," + helpY + ")");
                 moveToHelpPosition(helpX, helpY);
+            }
+        }
+
+        private void moveToHelpBattery(int helpX, int helpY) {
+            while (Math.abs(x - helpX) <= 1 && Math.abs(y - helpY) <= 1) {
+                if (x < helpX) x++;
+                else if (x > helpX) x--;
+
+                if (y < helpY) y++;
+                else if (y > helpY) y--;
+
+                visualizer.updateAgentPosition(agentIndex, x, y);
+                block(delay);
+            }
+            // Vérifier si l'agent est à côté de l'agent qui demande de l'aide
+            assistAgent(helpX, helpY);
+        }
+
+        private void assistAgent(int helpX, int helpY) {
+            // Vérifier que cet agent peut donner de la batterie
+            if (batteryLevel > lowBatteryThreshold) {
+                int batteryToGive = batteryLevel / 2; // Donner la moitié de la batterie
+                if(batteryLevel - batteryToGive < lowBatteryThreshold){
+                    batteryToGive = batteryLevel - lowBatteryThreshold;
+                }
+                batteryLevel -= batteryToGive; // Déduire la batterie de cet agent
+                System.out.println(getLocalName() + " is assisting at (" + helpX + ", " + helpY + ") by giving " + batteryToGive + " battery.");
+
+                // L'agent qui a demandé de l'aide reçoit la batterie
+                SpaceAgent helpRequestingAgent = visualizer.getAgentAt(helpX, helpY);
+                if (helpRequestingAgent != null) {
+                    helpRequestingAgent.batteryLevel += batteryToGive;
+                    System.out.println(helpRequestingAgent.getLocalName() + " received " + batteryToGive + " battery from " + getLocalName() + ".");
+                }
+            } else {
+                System.out.println(getLocalName() + " does not have enough battery to assist.");
             }
         }
 

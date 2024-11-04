@@ -6,6 +6,7 @@ public class MotherShip extends Agent {
     private int x; // Position X du vaisseau mère
     private int y; // Position Y du vaisseau mère
     private int collectedStones; // Nombre de pierres collectées
+    private int maxCapacity;
     private Image icon; // Icône du vaisseau mère
 
     // Constructeur par défaut
@@ -17,10 +18,11 @@ public class MotherShip extends Agent {
     }
 
     // Constructeur supplémentaire pour initialiser avec des valeurs
-    public MotherShip(int x, int y, String iconPath) {
+    public MotherShip(int x, int y, String iconPath, int maxCapacity) {
         this.x = x; // Initialisation de la position X
         this.y = y; // Initialisation de la position Y
         this.collectedStones = 0; // Initialisation du nombre de pierres collectées
+        this.maxCapacity = maxCapacity; // Set maximum capacity for stones
 
         // Charger l'icône du vaisseau mère
         this.icon = new ImageIcon(getClass().getResource(iconPath)).getImage()
@@ -28,8 +30,21 @@ public class MotherShip extends Agent {
     }
 
     // Méthode pour déposer les pierres
-    public void depositStones(int stones) {
-        this.collectedStones += stones; // Augmenter le nombre de pierres collectées
+    // Method to deposit stones
+    public boolean depositStones(int stones) {
+        if (canAccommodate(stones)) { // Check if it can accommodate the stones
+            this.collectedStones += stones; // Increase the number of collected stones
+            System.out.println(stones + " stones deposited. Total stones now: " + collectedStones);
+            return true; // Deposit was successful
+        } else {
+            System.out.println("Cannot deposit " + stones + " stones. Exceeds capacity.");
+            return false; // Deposit failed
+        }
+    }
+
+    // Check if the mother ship can accommodate more stones
+    public boolean canAccommodate(int stones) {
+        return (collectedStones + stones) <= maxCapacity; // Return true if within capacity
     }
 
     // Accesseurs
