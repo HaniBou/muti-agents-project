@@ -91,6 +91,9 @@ public class PlanetVisualizer extends JPanel {
             repaint();
         }
     }
+    public void registerAgent(SpaceAgent agent) {
+        agents.add(agent);
+    }
     public List<AID> getAllAgents() {
         List<AID> aidList = new ArrayList<>();
         for (SpaceAgent agent : agents) { //

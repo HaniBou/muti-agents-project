@@ -23,6 +23,7 @@ public class SpaceAgent extends Agent {
             throw new IllegalStateException("Visualizer must be set before agent setup.");
         }
 
+        visualizer.registerAgent(this);
         // Trouver une position disponible
         do {
             x = (int) (Math.random() * visualizer.getGridSize());
@@ -71,6 +72,7 @@ public class SpaceAgent extends Agent {
                     if (currentX < visualizer.getGridSize() - 1) currentX++;
                     break;
             }
+
 
             newPath.add(new Point(currentX, currentY)); // Ajouter le nouveau point au chemin
         }
